@@ -2,10 +2,13 @@
 
 Older Wacom tablets (e.g. the **CTH-680 Intuos Pen & Touch**) whose newest
 supported driver is the **6.3.x** line lose the ability to **drag windows by
-their title bar** on macOS 26 ("Tahoe" / the "Golden Gate" seed, reported as
-`27.0`). The pen still tracks, clicks, draws, and drags *files* — but grabbing a
-window's title bar to move it (including dragging across Spaces / into Mission
-Control) does nothing. Touch tap-to-click may also break.
+their title bar** on recent macOS. The pen still tracks, clicks, draws, and
+drags *files* — but grabbing a window's title bar to move it (including
+dragging across Spaces / into Mission Control) does nothing. Touch tap-to-click
+may also break.
+
+Tested on **macOS "Golden Gate" (`sw_vers` reports 27.0, build 26A428)**; the
+underlying WindowServer change likely affects macOS 26 (Tahoe) as well.
 
 This is a small, reversible fix that restores native window dragging for the
 pen **and** touch.
