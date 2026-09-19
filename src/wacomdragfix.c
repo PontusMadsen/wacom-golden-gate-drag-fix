@@ -34,7 +34,10 @@ static const CGEventField DFIELDS[] = {
 
 static void wdf_CGEventPost(CGEventTapLocation tap, CGEventRef event){
     CGEventType t = CGEventGetType(event);
-    if (is_button_event(t)) {
+    /* Only rebuild the PEN's events (tablet subtype==1). Touch (subtype 0) and
+     * everything else pass through untouched, so a pen+touch jumble can't stack
+     * two streams of "real" events and flood WindowServer. */
+    if (is_button_event(t) && CGEventGetIntegerValueField(event, kCGMouseEventSubtype) == 1) {
         CGPoint loc = CGEventGetLocation(event);
         CGMouseButton btn = (CGMouseButton)CGEventGetIntegerValueField(event, kCGMouseEventButtonNumber);
         CGEventRef m = CGEventCreateMouseEvent(NULL, t, loc, btn);
