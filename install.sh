@@ -5,19 +5,33 @@
 # See README.md for what this changes and the risks. Run with: sudo ./install.sh
 set -euo pipefail
 
-IOMAPP="/Library/PrivilegedHelperTools/com.wacom.IOManager.app"
+HELPERS="/Library/PrivilegedHelperTools"
 AGENT="/Library/LaunchAgents/com.wacom.IOManager.plist"
 DYLIB_DST="/Library/PrivilegedHelperTools/libwacomdragfix.dylib"
 REPO="$(cd "$(dirname "$0")" && pwd)"
 BACKUP="$REPO/backup-$(hostname -s)"
 
 [ "$(id -u)" = 0 ] || { echo "Please run with sudo: sudo ./install.sh"; exit 1; }
-[ -d "$IOMAPP" ] || { echo "Wacom IOManager not found at $IOMAPP."; echo "Install the Wacom 6.3.x driver first."; exit 1; }
+
+# Driver 6.3.x ships the helper as com.wacom.IOManager.app; 6.4.x renamed the
+# bundle (and its Mach-O + launchd label) to Wacom_IOManager.app, though the
+# bundle id and MachServices name are still com.wacom.IOManager.
+if [ -d "$HELPERS/com.wacom.IOManager.app" ]; then
+  IOMAPP="$HELPERS/com.wacom.IOManager.app"
+  IOMBIN="com.wacom.IOManager"
+  IOMLABEL="com.wacom.IOManager"
+elif [ -d "$HELPERS/Wacom_IOManager.app" ]; then
+  IOMAPP="$HELPERS/Wacom_IOManager.app"
+  IOMBIN="Wacom_IOManager"
+  IOMLABEL="Wacom_IOManager"
+else
+  echo "Wacom IOManager not found under $HELPERS."; echo "Install the Wacom driver first."; exit 1
+fi
 CONSOLE_UID="$(stat -f%u /dev/console)"
 
 echo "[1/5] Backing up factory IOManager + launch agent -> $BACKUP"
 mkdir -p "$BACKUP"
-[ -e "$BACKUP/com.wacom.IOManager.app" ]  || cp -R "$IOMAPP" "$BACKUP/com.wacom.IOManager.app"
+[ -e "$BACKUP/$(basename "$IOMAPP")" ] || cp -R "$IOMAPP" "$BACKUP/$(basename "$IOMAPP")"
 [ -e "$BACKUP/com.wacom.IOManager.plist" ] || cp "$AGENT" "$BACKUP/com.wacom.IOManager.plist"
 
 echo "[2/5] Installing the interpose dylib -> $DYLIB_DST"
@@ -34,7 +48,7 @@ chown root:wheel "$DYLIB_DST"; chmod 644 "$DYLIB_DST"
 
 echo "[3/5] Re-signing IOManager ad-hoc (drops hardened runtime + sandbox so the dylib can load)"
 codesign --remove-signature "$IOMAPP" 2>/dev/null || true
-codesign --force --sign - "$IOMAPP/Contents/MacOS/com.wacom.IOManager"
+codesign --force --sign - "$IOMAPP/Contents/MacOS/$IOMBIN"
 codesign --force --sign - "$IOMAPP"
 
 echo "[4/5] Adding DYLD_INSERT_LIBRARIES to the launch agent"
@@ -43,12 +57,12 @@ echo "[4/5] Adding DYLD_INSERT_LIBRARIES to the launch agent"
   || /usr/libexec/PlistBuddy -c "Set :EnvironmentVariables:DYLD_INSERT_LIBRARIES $DYLIB_DST" "$AGENT"
 
 echo "[5/5] Restarting IOManager + touch driver"
-launchctl bootout "gui/$CONSOLE_UID/com.wacom.IOManager" 2>/dev/null || true
+launchctl bootout "gui/$CONSOLE_UID/$IOMLABEL" 2>/dev/null || true
 sleep 1
-launchctl enable "gui/$CONSOLE_UID/com.wacom.IOManager" 2>/dev/null || true
+launchctl enable "gui/$CONSOLE_UID/$IOMLABEL" 2>/dev/null || true
 launchctl bootstrap "gui/$CONSOLE_UID" "$AGENT" 2>/dev/null || true
 sleep 1
-launchctl kickstart "gui/$CONSOLE_UID/com.wacom.IOManager" 2>/dev/null || true
+launchctl kickstart "gui/$CONSOLE_UID/$IOMLABEL" 2>/dev/null || true
 pkill -f "\.Tablet/WacomTouchDriver\.app" 2>/dev/null || true
 launchctl kickstart -k "gui/$CONSOLE_UID/com.wacom.wacomtablet" 2>/dev/null || true
 

@@ -1,11 +1,11 @@
 # Wacom pen/touch window-drag fix for macOS 26+
 
-Older Wacom tablets (e.g. the **CTH-680 Intuos Pen & Touch**) whose newest
-supported driver is the **6.3.x** line lose the ability to **drag windows by
-their title bar** on recent macOS. The pen still tracks, clicks, draws, and
-drags *files* — but grabbing a window's title bar to move it (including
-dragging across Spaces / into Mission Control) does nothing. Touch tap-to-click
-may also break.
+Wacom tablets on either the **6.3.x** driver line (e.g. the **CTH-680 Intuos
+Pen & Touch**, EOL) or the current **6.4.x** line lose the ability to **drag
+windows by their title bar** on recent macOS. The pen still tracks, clicks,
+draws, and drags *files* — but grabbing a window's title bar to move it
+(including dragging across Spaces / into Mission Control) does nothing. Touch
+tap-to-click may also break.
 
 Tested on **macOS "Golden Gate" (`sw_vers` reports 27.0, build 26A428)**; the
 underlying WindowServer change likely affects macOS 26 (Tahoe) as well.
@@ -21,13 +21,18 @@ pen **and** touch.
 
 ## Who this is for
 
-- A Wacom tablet supported only up to driver **6.3.x** (last release for many
-  2013-era Intuos models: **6.3.46-2 / 6.3.46f2**).
+- Any Wacom tablet driver, **6.3.x** (last release for many 2013-era Intuos
+  models: **6.3.46-2 / 6.3.46f2**) or the current **6.4.x** line (confirmed on
+  **6.4.14-2**).
 - macOS **26 or newer** (Tahoe / Golden Gate).
 - The pen tracks and clicks, but **cannot drag windows**.
 
-If you're on the current 6.4.x driver line (newer tablets), this isn't your
-problem — the 6.4.x driver emits events differently and doesn't have this bug.
+6.4.x renamed the privileged helper bundle from `com.wacom.IOManager.app` to
+`Wacom_IOManager.app` (executable and launchd label follow suit; the bundle id
+and Mach service name are still `com.wacom.IOManager`), but its `IOManager`
+binary still builds pointer events with `CGEventCreate`/`CGEventSetType`
+instead of `CGEventCreateMouseEvent` — same bug. `install.sh`/`uninstall.sh`
+detect either bundle name automatically.
 
 ## The root cause
 
